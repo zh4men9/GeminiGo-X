@@ -61,7 +61,7 @@ GeminiGo-X 是一款融合了传统五子棋和现代人工智能的游戏。它
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourusername/GeminiGo-X.git
+git clone https://github.com/zh4men9/GeminiGo-X.git
 cd GeminiGo-X
 
 # 创建虚拟环境

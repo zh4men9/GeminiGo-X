@@ -61,7 +61,7 @@ GeminiGo-X is an innovative Gomoku (Five in a Row) game that combines traditiona
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/GeminiGo-X.git
+git clone https://github.com/zh4men9/GeminiGo-X.git
 cd GeminiGo-X
 
 # Create virtual environment
