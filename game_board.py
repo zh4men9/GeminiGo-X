@@ -72,6 +72,18 @@ class GameBoard(QWidget):
             }
         """)
         
+        # 玩家提示标签
+        self.player_info_label = QLabel("人类执黑子（先手）")
+        self.player_info_label.setStyleSheet("""
+            QLabel {
+                font-size: 14px;
+                padding: 10px;
+                background-color: #e0e0e0;
+                border-radius: 5px;
+                margin-top: 5px;
+            }
+        """)
+        
         # 按钮样式
         button_style = """
             QPushButton {
@@ -100,10 +112,10 @@ class GameBoard(QWidget):
         puzzle_mode_button = QPushButton("残局模式")
         stage_mode_button = QPushButton("闯关模式")
         theme_button = QPushButton("切换主题")
-        ai_button = QPushButton("启用AI")
+        self.ai_button = QPushButton("启用AI")  # 保存为实例变量以便后续修改
         
         # 设置按钮样式
-        for button in [undo_button, restart_button, puzzle_mode_button, stage_mode_button, theme_button, ai_button]:
+        for button in [undo_button, restart_button, puzzle_mode_button, stage_mode_button, theme_button, self.ai_button]:
             button.setStyleSheet(button_style)
         
         # 连接按钮信号
@@ -112,16 +124,17 @@ class GameBoard(QWidget):
         puzzle_mode_button.clicked.connect(self.enter_puzzle_mode)
         stage_mode_button.clicked.connect(self.enter_stage_mode)
         theme_button.clicked.connect(self.toggle_theme)
-        ai_button.clicked.connect(self.toggle_ai)
+        self.ai_button.clicked.connect(self.toggle_ai)
         
         # 添加控件到控制面板
         control_panel.addWidget(self.status_label)
+        control_panel.addWidget(self.player_info_label)
         control_panel.addWidget(undo_button)
         control_panel.addWidget(restart_button)
         control_panel.addWidget(puzzle_mode_button)
         control_panel.addWidget(stage_mode_button)
         control_panel.addWidget(theme_button)
-        control_panel.addWidget(ai_button)
+        control_panel.addWidget(self.ai_button)
         control_panel.addStretch()
         
         # 设置布局
@@ -239,11 +252,13 @@ class GameBoard(QWidget):
             if self.game_logic.add_piece(x, y):
                 # 检查是否获胜
                 if self.game_logic.game_over:
-                    winner = "黑方" if not self.game_logic.is_black_turn else "白方"
+                    winner = "黑方" if self.game_logic.is_black_turn else "白方"
                     QMessageBox.information(self, "游戏结束", f"{winner}获胜！")
                 elif self.is_ai_enabled:
                     # 更新状态为等待AI
                     self.status_label.setText("AI思考中...")
+                    self.player_info_label.setText("等待AI落子...")
+                    self.ai_button.setEnabled(False)  # 禁用AI按钮
                     QApplication.processEvents()  # 立即更新UI
                     # AI下棋
                     self.make_ai_move()
@@ -258,14 +273,16 @@ class GameBoard(QWidget):
                 x, y = self.ai_player.get_move(self.game_logic.pieces, self.board_size)
                 if self.game_logic.add_piece(x, y):
                     if self.game_logic.game_over:
-                        winner = "AI" if not self.game_logic.is_black_turn else "玩家"
+                        winner = "AI" if self.game_logic.is_black_turn else "玩家"
                         QMessageBox.information(self, "游戏结束", f"{winner}获胜！")
                     self.update_status()
                     self.update()
             except Exception as e:
                 QMessageBox.warning(self, "AI错误", f"AI下棋出错：{str(e)}")
                 self.game_logic.is_black_turn = not self.game_logic.is_black_turn  # 切换回玩家回合
-                
+            finally:
+                self.ai_button.setEnabled(True)  # 重新启用AI按钮
+
     def update_status(self):
         """更新状态标签"""
         if self.game_logic.game_over:
@@ -273,9 +290,11 @@ class GameBoard(QWidget):
             
         if self.is_ai_enabled:
             current_player = "你的回合" if self.game_logic.is_black_turn else "AI思考中..."
+            self.player_info_label.setText("人类执黑子 vs AI执白子")
         else:
             current_player = "黑" if self.game_logic.is_black_turn else "白"
             current_player += "子回合"
+            self.player_info_label.setText("双人对战模式")
         self.status_label.setText(current_player)
 
     def undo_move(self):
@@ -387,6 +406,10 @@ class GameBoard(QWidget):
     def toggle_ai(self):
         """切换AI状态"""
         if not self.is_ai_enabled:
+            self.ai_button.setEnabled(False)  # 禁用按钮
+            self.ai_button.setText("正在连接...")
+            QApplication.processEvents()  # 立即更新UI
+            
             api_key, ok = QInputDialog.getText(
                 self, "启用AI", "请输入Gemini API密钥：", 
                 QLineEdit.EchoMode.Password
@@ -401,13 +424,18 @@ class GameBoard(QWidget):
                         self.ai_player = test_ai
                         self.is_ai_enabled = True
                         self.game_logic.reset_game()  # 重置游戏
+                        self.ai_button.setText("禁用AI")
                         QMessageBox.information(self, "成功", "AI已启用！你执黑子（先手），AI执白子。")
                         self.update_status()
                 except Exception as e:
                     QMessageBox.warning(self, "错误", f"API密钥无效或连接失败：{str(e)}")
+            self.ai_button.setEnabled(True)  # 重新启用按钮
+            if not self.is_ai_enabled:
+                self.ai_button.setText("启用AI")
         else:
             self.is_ai_enabled = False
             self.ai_player = None
             self.game_logic.reset_game()  # 重置游戏
+            self.ai_button.setText("启用AI")
             QMessageBox.information(self, "提示", "AI已禁用！返回双人模式。")
             self.update_status()

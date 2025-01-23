@@ -6,7 +6,7 @@ from typing import Tuple, List
 class AIPlayer:
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
         self.board_size = 15  # 设置棋盘大小
         
     def get_move(self, board_state: List[Tuple[int, int, bool]], board_size: int) -> Tuple[int, int]:
