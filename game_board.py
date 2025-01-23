@@ -1,9 +1,10 @@
-from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox, QInputDialog
+from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox, QInputDialog, QLineEdit
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtCore import Qt, QPoint
 from game_logic import GameLogic
 from themes import GameThemes
 from ai_player import AIPlayer
+from PyQt6.QtWidgets import QApplication
 
 class GameBoard(QWidget):
     GAME_MODE_NORMAL = "normal"
@@ -218,6 +219,11 @@ class GameBoard(QWidget):
         if self.game_logic.game_over:
             return
             
+        # 如果是AI的回合，不允许玩家操作
+        if self.is_ai_enabled and not self.game_logic.is_black_turn:
+            QMessageBox.warning(self, "提示", "当前是AI的回合！")
+            return
+            
         # 获取相对于board_container的位置
         pos = self.board_container.mapFromParent(event.pos())
         x = round((pos.x() - self.margin) / self.cell_size)
@@ -226,28 +232,51 @@ class GameBoard(QWidget):
         # 检查是否在有效范围内
         if 0 <= x < self.board_size and 0 <= y < self.board_size:
             # 检查该位置是否已有棋子
-            for piece in self.game_logic.pieces:
-                if piece[0] == x and piece[1] == y:
-                    return
+            if not self.game_logic.is_valid_move(x, y):
+                return
                     
             # 添加新棋子
-            self.game_logic.add_piece(x, y)
-            
-            # 检查是否获胜
-            if self.game_logic.game_over:
-                winner = "黑方" if not self.game_logic.is_black_turn else "白方"
-                QMessageBox.information(self, "游戏结束", f"{winner}获胜！")
-            
-            # 切换回合
-            self.game_logic.is_black_turn = not self.game_logic.is_black_turn
-            self.update_status()
-            
-            # 重绘棋盘
-            self.update()
-
+            if self.game_logic.add_piece(x, y):
+                # 检查是否获胜
+                if self.game_logic.game_over:
+                    winner = "黑方" if not self.game_logic.is_black_turn else "白方"
+                    QMessageBox.information(self, "游戏结束", f"{winner}获胜！")
+                elif self.is_ai_enabled:
+                    # 更新状态为等待AI
+                    self.status_label.setText("AI思考中...")
+                    QApplication.processEvents()  # 立即更新UI
+                    # AI下棋
+                    self.make_ai_move()
+                
+                self.update_status()
+                self.update()
+                
+    def make_ai_move(self):
+        """AI下棋"""
+        if self.ai_player and not self.game_logic.game_over:
+            try:
+                x, y = self.ai_player.get_move(self.game_logic.pieces, self.board_size)
+                if self.game_logic.add_piece(x, y):
+                    if self.game_logic.game_over:
+                        winner = "AI" if not self.game_logic.is_black_turn else "玩家"
+                        QMessageBox.information(self, "游戏结束", f"{winner}获胜！")
+                    self.update_status()
+                    self.update()
+            except Exception as e:
+                QMessageBox.warning(self, "AI错误", f"AI下棋出错：{str(e)}")
+                self.game_logic.is_black_turn = not self.game_logic.is_black_turn  # 切换回玩家回合
+                
     def update_status(self):
-        current_player = "黑" if self.game_logic.is_black_turn else "白"
-        self.status_label.setText(f"当前回合：{current_player}子")
+        """更新状态标签"""
+        if self.game_logic.game_over:
+            return
+            
+        if self.is_ai_enabled:
+            current_player = "你的回合" if self.game_logic.is_black_turn else "AI思考中..."
+        else:
+            current_player = "黑" if self.game_logic.is_black_turn else "白"
+            current_player += "子回合"
+        self.status_label.setText(current_player)
 
     def undo_move(self):
         if self.is_ai_enabled:
@@ -356,19 +385,29 @@ class GameBoard(QWidget):
         self.update()
 
     def toggle_ai(self):
+        """切换AI状态"""
         if not self.is_ai_enabled:
             api_key, ok = QInputDialog.getText(
                 self, "启用AI", "请输入Gemini API密钥：", 
-                QInputDialog.EchoMode.Password
+                QLineEdit.EchoMode.Password
             )
             if ok and api_key:
                 try:
-                    self.ai_player = AIPlayer(api_key)
-                    self.is_ai_enabled = True
-                    QMessageBox.information(self, "成功", "AI已启用！")
+                    # 创建临时AI对象测试API密钥
+                    test_ai = AIPlayer(api_key)
+                    # 测试API是否可用
+                    test_response = test_ai.model.generate_content("测试API连接")
+                    if test_response:
+                        self.ai_player = test_ai
+                        self.is_ai_enabled = True
+                        self.game_logic.reset_game()  # 重置游戏
+                        QMessageBox.information(self, "成功", "AI已启用！你执黑子（先手），AI执白子。")
+                        self.update_status()
                 except Exception as e:
-                    QMessageBox.warning(self, "错误", f"无法启用AI：{str(e)}")
+                    QMessageBox.warning(self, "错误", f"API密钥无效或连接失败：{str(e)}")
         else:
             self.is_ai_enabled = False
             self.ai_player = None
-            QMessageBox.information(self, "提示", "AI已禁用！")
+            self.game_logic.reset_game()  # 重置游戏
+            QMessageBox.information(self, "提示", "AI已禁用！返回双人模式。")
+            self.update_status()

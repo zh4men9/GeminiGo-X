@@ -7,6 +7,7 @@ class AIPlayer:
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-pro')
+        self.board_size = 15  # 设置棋盘大小
         
     def get_move(self, board_state: List[Tuple[int, int, bool]], board_size: int) -> Tuple[int, int]:
         """
@@ -19,6 +20,7 @@ class AIPlayer:
         Returns:
             (x, y): AI选择的位置
         """
+        self.board_size = board_size  # 更新棋盘大小
         # 将棋盘状态转换为更易理解的格式
         board = [[None for _ in range(board_size)] for _ in range(board_size)]
         for x, y, is_black in board_state:
@@ -30,6 +32,9 @@ class AIPlayer:
         try:
             # 获取AI响应
             response = self.model.generate_content(prompt)
+            if not response.text:
+                raise ValueError("AI返回空响应")
+                
             move = self._parse_response(response.text)
             
             # 验证移动是否有效
@@ -50,7 +55,10 @@ class AIPlayer:
 
 {board_str}
 
-请分析局势并给出下一步最佳落子位置，格式为：{{"x": 数字, "y": 数字}}
+你执白子。请分析局势并给出下一步最佳落子位置，要求：
+1. 优先选择进攻位置
+2. 必须阻挡对手即将连成五子的位置
+3. 返回格式：{{"x": 数字, "y": 数字}}
 只需要返回坐标JSON，不要其他解释。
 """
 
@@ -62,9 +70,11 @@ class AIPlayer:
             end = response.find("}") + 1
             if start != -1 and end != -1:
                 move_json = json.loads(response[start:end])
-                return (int(move_json["x"]), int(move_json["y"]))
-        except:
-            pass
+                x, y = int(move_json["x"]), int(move_json["y"])
+                if 0 <= x < self.board_size and 0 <= y < self.board_size:
+                    return x, y
+        except Exception as e:
+            print(f"解析AI响应时出错: {str(e)}")
         raise ValueError("无法解析AI响应")
 
     def _is_valid_move(self, move: Tuple[int, int], board_state: List[Tuple[int, int, bool]], board_size: int) -> bool:
@@ -77,8 +87,16 @@ class AIPlayer:
     def _fallback_strategy(self, board_state: List[Tuple[int, int, bool]], board_size: int) -> Tuple[int, int]:
         """简单的后备策略：找到第一个空位"""
         occupied = set((x, y) for x, y, _ in board_state)
-        for y in range(board_size):
-            for x in range(board_size):
-                if (x, y) not in occupied:
-                    return (x, y)
+        # 优先选择中心位置
+        center = board_size // 2
+        if (center, center) not in occupied:
+            return (center, center)
+            
+        # 然后选择靠近中心的位置
+        for d in range(1, board_size):
+            for i in range(-d, d+1):
+                for j in range(-d, d+1):
+                    x, y = center + i, center + j
+                    if 0 <= x < board_size and 0 <= y < board_size and (x, y) not in occupied:
+                        return (x, y)
         raise ValueError("棋盘已满") 
