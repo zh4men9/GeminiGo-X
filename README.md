@@ -131,9 +131,9 @@ python main.py
 
 ## 📧 联系方式
 
-- 项目维护者: Your Name
-- Email: your.email@example.com
-- 项目链接: [https://github.com/yourusername/GeminiGo-X](https://github.com/yourusername/GeminiGo-X)
+- 项目维护者: zh4men9
+- Email: zh4men9@gmail.com
+- 项目链接: [https://github.com/zh4men9/GeminiGo-X](https://github.com/zh4men9/GeminiGo-X)
 
 ---
 

@@ -131,9 +131,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-- Project Maintainer: Your Name
-- Email: your.email@example.com
-- Project Link: [https://github.com/yourusername/GeminiGo-X](https://github.com/yourusername/GeminiGo-X)
+- Project Maintainer: zh4men9
+- Email: zh4men9@gmail.com
+- Project Link: [https://github.com/zh4men9/GeminiGo-X](https://github.com/zh4men9/GeminiGo-X)
 
 ---
 
